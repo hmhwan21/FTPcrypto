@@ -293,7 +293,7 @@ while True:
 			#make new directory
 			try:
 				os.mkdir(arguments[0].decode('utf-8'))
-				print_msg(b"created directory: " + arguments[0].decode('utf-8'),arguments[1], rootDirectory, symkey, nonce)
+				print_msg(b"created directory: " + arguments[0], arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 
 			except:
 				print_msg(b"already exists", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
@@ -315,6 +315,7 @@ while True:
 				else:
 					os.chdir(arguments[0].decode('utf-8'))
 					extraFolder += arguments[0].decode('utf-8') + "/"
+					print_msg(b"entered: " + arguments[0], arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 			except:
 				print_msg("Does not exist", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 
@@ -325,7 +326,7 @@ while True:
 				continue
 			try:
 				os.rmdir(arguments[0].decode('utf-8'))
-				print_msg(b"removed: " + arguments[0],arguments[1], rootDirectory, symkey, nonce)
+				print_msg(b"removed directory: " + arguments[0], arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 			except:
 				print_msg(b"Does not exist", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 		
