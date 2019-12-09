@@ -17,6 +17,19 @@ OWN_ADDR = 'S'
 # ------------       
 # main program
 # ------------
+
+def print_msg(p_msg, destination, rootdirectory, key, nonce):
+	os.chdir(rootdirectory)
+	AEScipher = AES.new(key, AES.MODE_GCM, nonce= nonce)
+	encr_msg, tag = AEScipher.encrypt_and_digest(p_msg)
+	dictToJSON = {}
+	dictToJSON["nonce"] = base64.encodebytes(nonce).decode('ascii')
+	dictToJSON["encrypted_msg"] = base64.encodebytes(encr_msg).decode('ascii')
+	dictToJSON["tag"] = base64.encodebytes(tag).decode('ascii')
+	msg_full_to_send = json.dumps(dictToJSON).encode('utf-8')
+
+	netif.send_msg(destination, msg_full_to_send)
+
 def copyFile(src, dst):
     shutil.copyfile(src, dst)
 
@@ -134,7 +147,7 @@ while True:
 	print(cipher_text)
 	if (cipher_text[:length] == b'-sendkey'):
 		os.chdir(NET_PATH + OWN_ADDR) #puts us into the server folder
-		#print("ifed")
+		print("ifed")
 		keys_dict = generateKeysDictString()
 		#print(keys_dict)
 		#print(list(keys_dict.keys())[0])
@@ -205,13 +218,36 @@ while True:
 		#print(cipher_text.split(b"|"))
 		dictMetaData = json.loads(cipher_text.decode('utf-8'))
 		nonce = base64.decodebytes(dictMetaData["nonce"].encode('ascii'))
+		#nonce stuff
+		repeat = False
+		try:
+			nonces_received = open("nonces_received.txt", 'rb').readlines()
+
+			# We need to shave off the \n from each line to compare to our current nonce
+			nonces_pure = []
+			for i in range(len(nonces_received)):
+				nonces_pure.append(nonces_received[i][:-1])
+			# If we have already seen our current nonce
+			if(nonce in nonces_pure):
+				repeat = True
+			nonces_received.close()
+		except:
+			# If we have never received a nonce before
+			nonces_received = []
+
+		# If we have a repeat message
+		if(repeat):
+			continue
+
+		nonce_file = open("nonces_received.txt", 'ab')
+		# Write current nonce so it is never used again
+		nonce_file.write(nonce)
+		nonce_file.write(b'\n')
+
+		nonce_file.close()
+		#end nonce
 		tag = base64.decodebytes(dictMetaData["tag"].encode('ascii'))
 		cipher_text_to_decrypt = base64.decodebytes(dictMetaData["encrypted_msg"].encode('ascii'))
-
-		##check nonce::
-
-		##
-
 		#nonce, tag, cipher_text_to_decrypt = cipher_text.split(b"|")
 		#for each keys in the key's dictionary
 		#we want to XOR that key with the server symmmetric key and then use that to try to decrypt cipher_text_to_decrypt
@@ -221,7 +257,7 @@ while True:
 			print("please send a key over")
 		command = ''
 		arguments = []
-		currentKey = None
+		symkey = None
 		for key in list(keys_dict.keys()):
 			print(b"Key : " +  key)
 			# privateK = RSA.import_key(open('privateKEY.pem', 'r').read())
@@ -237,10 +273,11 @@ while True:
 				command = commandArg[0].decode('utf-8')
 				arguments = commandArg[1:]
 				own_folder = keys_dict[key] + '/'
-				currentKey = key
+				symkey = key
 		
 			except:
 				print("Incorrect Dec while trying to decrypt message with keys from dict")
+				
 		print('end of checking keys')
 		if own_folder == "not real":
 			print("cannot find your folder")
@@ -248,27 +285,28 @@ while True:
 		#print(command)
 		#print(arguments)
 		os.chdir(own_folder + extraFolder)
+		
 		if command == "MKD":
 			if len(arguments) < 2:
-				#oschr(rootdirectory)
-				#netif.sendmsg(arguments[1], msg.encode('utf-8'))
-				print("please enter an argument")
+				print_msg(b"please enter an argument", arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
 				continue
 			#make new directory
 			try:
 				os.mkdir(arguments[0].decode('utf-8'))
-				print("created directory: " + arguments[0].decode('utf-8'))
+				print_msg(b"created directory: " + arguments[0].decode('utf-8'),arguments[1], rootDirectory, symkey, nonce)
+
 			except:
-				print("already exists")
+				print_msg(b"already exists", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
+
 		elif command == "CWD":
 			if len(arguments) < 2:
-				print("please enter an argument")
+				print_msg(b"please enter an argument", arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
 				continue
 			try:
 				#change working directory
 				if arguments[0].decode('utf-8') == "..":
 					if os.getcwd()[-4:] == own_folder[:4]:
-						print("Cannot go back further")
+						print_msg(b"Cannot go back further", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 						continue
 					else:
 						value = -len(os.getcwd().split('\\')[-1])
@@ -278,66 +316,82 @@ while True:
 					os.chdir(arguments[0].decode('utf-8'))
 					extraFolder += arguments[0].decode('utf-8') + "/"
 			except:
-				print('does not exist')
+				print_msg("Does not exist", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
+
 		elif command == "RMD":
 			#remove directory
 			if len(arguments) < 2:
-				print("please enter an argument")
+				print_msg(b"please enter an argument", arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
 				continue
 			try:
 				os.rmdir(arguments[0].decode('utf-8'))
-				print("removed: " + arguments[0].decode('utf-8'))
+				print_msg(b"removed: " + arguments[0],arguments[1], rootDirectory, symkey, nonce)
 			except:
-				print('does not exist')
+				print_msg(b"Does not exist", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
+		
 		elif command == "GWD":
 			#get working directory (current folder)
-			print("WORKING DIRECTORY: " + os.getcwd())
+			directory = os.getcwd()
+
+			print_msg(b'WORKING DIRECTORY: ' + directory.encode('utf-8'), arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
+			
+		
 		elif command == "LST":
 			#list all files
 			listoffiles = os.listdir()
 			if len(listoffiles) == 0:
-				print("No Files Found")
+				print_msg(b"No Files Found", arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
 			else:
 				for file1 in listoffiles:
+					
+					print_msg(file1.encode('utf-8'), arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
 					print(file1)
+		
 		elif command == "UPL":
 			#upload file
 			#first argument, your directory / file name, given file name
 			#to location = current directory / file name, given same file name
 			#arg 0 is your folder name off of the higher path
 			if len(arguments) < 2:
-				print("please enter an argument")
+				print_msg(b"please enter an argument", arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
 				continue
 			try:
-				print('1')
-				print(rootDirectory  + "\\"+ NET_PATH + arguments[1].decode('utf-8') + "/" + arguments[0].decode('utf-8'), "spcae", os.getcwd()  + "\\" + arguments[0].decode('utf-8'))
+				print(os.getcwd()  + "\\" + arguments[0].decode('utf-8'))
 				copyFile(rootDirectory  + "\\"+ NET_PATH + arguments[1].decode('utf-8') + "/" + arguments[0].decode('utf-8'), os.getcwd()  + "\\" + arguments[0].decode('utf-8'))
-				print("upload successful")
+				print_msg(b"upload successful", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 			except:
-				print("file cannot be found")
+				print_msg(b"file cannot be found", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
+				#print
+		
 		elif command == "DNL":
 			#download file
 			#first argument will be current directory / file name, given file name
 			#to location = your directory / file name, given same file name
 			# arg 0 is still your folder name (user name)
 			if len(arguments) < 2:
-				print("please enter an argument")
+				print_msg(b"please enter an argument", arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
 				continue
 			try:
 				copyFile(os.getcwd() + "\\" + arguments[0].decode('utf-8'), rootDirectory + "\\"+  NET_PATH + arguments[1].decode('utf-8') + "/" + arguments[0].decode('utf-8'))
-				print("download successful")
+				print_msg(b"download successful", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 			except:
-				print("file cannot be found")
+				print_msg(b"file cannot be found", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
+		
 		elif command == "RMF":
 			#remove file
 			#given the file name, current directory / file name
+			if len(arguments) < 2:
+				print_msg(b"please enter an argument", arguments[0].decode('utf-8'), rootDirectory, symkey, nonce)
+				continue
 			try:
 				os.remove(arguments[0].decode('utf-8'))
+				print_msg(arguments[0] + b' was removed', arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
 			except:
-				print("file does not exist, cannot remove")
+				print_msg(b"file does not exist, cannot remove", arguments[1].decode('utf-8'), rootDirectory, symkey, nonce)
+
 			#print(msg.decode('utf-8'))
 				
-		
+	
 		 
 		#try to decrypt payload with the XOR-ed key 
 		#If any works, then accept the decrypted payload
