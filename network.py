@@ -125,6 +125,3 @@ while True:
 			for dst in dsts:									# for all destinations of the message...
 				if dst in ADDR_SPACE:							# destination must be a valid address
 					write_msg(dst, msg)                         # write incoming message
-
-
-#hello
