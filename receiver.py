@@ -134,7 +134,7 @@ while True:
 	print(cipher_text)
 	if (cipher_text[:length] == b'-sendkey'):
 		os.chdir(NET_PATH + OWN_ADDR) #puts us into the server folder
-		print("ifed")
+		#print("ifed")
 		keys_dict = generateKeysDictString()
 		#print(keys_dict)
 		#print(list(keys_dict.keys())[0])
@@ -207,6 +207,11 @@ while True:
 		nonce = base64.decodebytes(dictMetaData["nonce"].encode('ascii'))
 		tag = base64.decodebytes(dictMetaData["tag"].encode('ascii'))
 		cipher_text_to_decrypt = base64.decodebytes(dictMetaData["encrypted_msg"].encode('ascii'))
+
+		##check nonce::
+
+		##
+
 		#nonce, tag, cipher_text_to_decrypt = cipher_text.split(b"|")
 		#for each keys in the key's dictionary
 		#we want to XOR that key with the server symmmetric key and then use that to try to decrypt cipher_text_to_decrypt
@@ -216,6 +221,7 @@ while True:
 			print("please send a key over")
 		command = ''
 		arguments = []
+		currentKey = None
 		for key in list(keys_dict.keys()):
 			print(b"Key : " +  key)
 			# privateK = RSA.import_key(open('privateKEY.pem', 'r').read())
@@ -231,6 +237,7 @@ while True:
 				command = commandArg[0].decode('utf-8')
 				arguments = commandArg[1:]
 				own_folder = keys_dict[key] + '/'
+				currentKey = key
 		
 			except:
 				print("Incorrect Dec while trying to decrypt message with keys from dict")
@@ -243,6 +250,8 @@ while True:
 		os.chdir(own_folder + extraFolder)
 		if command == "MKD":
 			if len(arguments) < 2:
+				#oschr(rootdirectory)
+				#netif.sendmsg(arguments[1], msg.encode('utf-8'))
 				print("please enter an argument")
 				continue
 			#make new directory
@@ -300,6 +309,8 @@ while True:
 				print("please enter an argument")
 				continue
 			try:
+				print('1')
+				print(rootDirectory  + "\\"+ NET_PATH + arguments[1].decode('utf-8') + "/" + arguments[0].decode('utf-8'), "spcae", os.getcwd()  + "\\" + arguments[0].decode('utf-8'))
 				copyFile(rootDirectory  + "\\"+ NET_PATH + arguments[1].decode('utf-8') + "/" + arguments[0].decode('utf-8'), os.getcwd()  + "\\" + arguments[0].decode('utf-8'))
 				print("upload successful")
 			except:
@@ -324,7 +335,6 @@ while True:
 				os.remove(arguments[0].decode('utf-8'))
 			except:
 				print("file does not exist, cannot remove")
-
 			#print(msg.decode('utf-8'))
 				
 		

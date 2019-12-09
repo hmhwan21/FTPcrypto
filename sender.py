@@ -103,6 +103,13 @@ while True:
 			os.chdir(rootDirectory)
 			continue
 		nonce = Random.get_random_bytes(16)
+		#add to a nonces sent.txt
+		# nonce stuff
+		nonce_file = open("nonces_sent.txt", "ab")
+		nonce_file.write(nonce)
+		nonce_file.write(b'\n')
+		nonce_file.close()
+		# nonce stuff end
 		print(user_symkey)
 		AEScipher = AES.new(user_symkey, AES.MODE_GCM, nonce= nonce)
 		encr_msg, tag = AEScipher.encrypt_and_digest(msg.encode('utf-8')) #do we need tag? see receiver
